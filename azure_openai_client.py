@@ -99,7 +99,21 @@ class AzureOpenAIClient:
             
         except Exception as e:
             error_msg = str(e)
-            if "403" in error_msg and ("Virtual Network" in error_msg or "Firewall" in error_msg):
+            if "Virtual Network is configured" in error_msg:
+                raise Exception(
+                    "Virtual Network Configuration Issue:\n\n"
+                    "Your Azure OpenAI resource is configured with a Virtual Network, which requires a specific VNet endpoint.\n\n"
+                    "To fix this:\n"
+                    "1. Go to Azure Portal → Your OpenAI Resource → Networking\n"
+                    "2. Under 'Public network access':\n"
+                    "   - Change from 'Disabled' to 'Enabled from all networks'\n"
+                    "   - OR change from 'Enabled from selected virtual networks and IP addresses' to 'Enabled from all networks'\n"
+                    "3. Click 'Save' and wait 5-10 minutes\n"
+                    "4. Try again\n\n"
+                    "Alternative: If you need to keep VNet restrictions, you'll need to deploy this application within the same Azure VNet.\n\n"
+                    f"Technical error: {error_msg}"
+                )
+            elif "403" in error_msg and ("Virtual Network" in error_msg or "Firewall" in error_msg):
                 raise Exception(
                     "Access denied due to Azure firewall rules. To fix this:\n\n"
                     "1. Go to your Azure OpenAI resource in Azure Portal\n"
@@ -293,8 +307,11 @@ class AzureOpenAIClient:
                 "organization_notes": f"Analysis failed: {str(e)}"
             }
     
-    def test_connection(self) -> bool:
+    def test_connection(self) -> tuple[bool, str]:
         """Test the Azure OpenAI connection"""
+        
+        if not self.connection_working or self.client is None:
+            return False, "Client not initialized properly"
         
         try:
             response = self.client.chat.completions.create(
@@ -302,6 +319,6 @@ class AzureOpenAIClient:
                 messages=[{"role": "user", "content": "Hello, this is a connection test."}],
                 max_tokens=10
             )
-            return True
-        except Exception:
-            return False
+            return True, "Connection successful"
+        except Exception as e:
+            return False, str(e)

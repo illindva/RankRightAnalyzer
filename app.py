@@ -171,9 +171,10 @@ def perform_analysis(content_text, source_info):
                 - Add IP: `34.9.104.227` to your allowed list
                 - Note: This IP changes when Replit restarts
                 
-                ### Option 3: Use Azure Service Tags (Most Secure)
-                - In networking settings, add service tag "Azure"
-                - This allows only Azure-to-Azure communication
+                ### Option 3: Check Virtual Network Settings
+                - Your error suggests VNet is configured
+                - Go to Networking → Public network access
+                - Change to "Enabled from all networks"
                 """)
                 
             st.info("After fixing the Azure settings, try uploading and analyzing your document again.")
@@ -304,14 +305,38 @@ def show_settings_page():
         endpoint = st.text_input("Azure OpenAI Endpoint", value=os.getenv("AZURE_OPENAI_ENDPOINT", ""))
         api_key = st.text_input("API Key", type="password", value="***" if os.getenv("AZURE_OPENAI_API_KEY") else "")
         api_version = st.text_input("API Version", value=os.getenv("AZURE_OPENAI_API_VERSION", "2024-02-01"))
+        deployment_name = st.text_input("Deployment Name", value=os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME", "gpt-4o"))
+        
+        # Configuration check
+        st.subheader("Configuration Status")
+        config_issues = []
+        if not endpoint:
+            config_issues.append("❌ Azure OpenAI Endpoint is missing")
+        else:
+            st.info(f"✅ Endpoint: {endpoint}")
+            
+        if not os.getenv("AZURE_OPENAI_API_KEY"):
+            config_issues.append("❌ Azure OpenAI API Key is missing")
+        else:
+            st.info("✅ API Key is configured")
+            
+        if not deployment_name:
+            config_issues.append("❌ Deployment Name is missing")
+        else:
+            st.info(f"✅ Deployment: {deployment_name}")
+            
+        if config_issues:
+            for issue in config_issues:
+                st.error(issue)
         
         if st.button("Test Connection"):
             try:
                 test_client = AzureOpenAIClient()
-                if test_client.test_connection():
+                success, message = test_client.test_connection()
+                if success:
                     st.success("✅ Connection successful! Azure OpenAI is working.")
                 else:
-                    st.error("❌ Connection failed. Please check your configuration.")
+                    st.error(f"❌ Connection failed: {message}")
             except Exception as e:
                 error_msg = str(e)
                 if "403" in error_msg and ("Virtual Network" in error_msg or "Firewall" in error_msg):
