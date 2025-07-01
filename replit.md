@@ -138,9 +138,17 @@ AZURE_OPENAI_DEPLOYMENT_NAME=gpt-4o
 
 ### Known Issues & Solutions
 - **Azure OpenAI 403 Firewall Error**: Common issue when Azure OpenAI has network restrictions
-  - Solution: Change Azure OpenAI networking from "Selected networks" to "All networks" in Azure Portal
-  - Alternative: Add current IP address to allowed list
+  - **Option 1**: Change Azure OpenAI networking from "Selected networks" to "All networks" in Azure Portal
+  - **Option 2**: Add current IP address (34.9.104.227) to allowed list (temporary - IP changes on restart)
+  - **Option 3**: Use Azure Service Tags for more secure access
+  - **Production**: Deploy to Azure infrastructure for static IPs and private endpoints
   - Fix instructions integrated into error messages throughout the application
+
+### Network Security Recommendations
+- **Development**: Use IP whitelisting with current dynamic IP
+- **Production**: Deploy to Azure App Service with VNet integration
+- **Enterprise**: Implement private endpoints and Azure Front Door
+- Replit does not provide static IPs or private endpoints
 
 ## Changelog
 

@@ -160,17 +160,20 @@ def perform_analysis(content_text, source_info):
                 st.markdown("""
                 **Your Azure OpenAI service has firewall rules blocking this connection.**
                 
-                ### Steps to Fix:
+                ### Option 1: Allow All Networks (Simplest)
                 1. Go to **Azure Portal** (portal.azure.com)
                 2. Find your **Azure OpenAI resource**
                 3. Click **"Networking"** in the left sidebar
-                4. Under **"Firewalls and virtual networks":**
-                   - Change from "Selected networks" to **"All networks"**
-                5. Click **"Save"**
-                6. **Wait 2-3 minutes** for changes to take effect
-                7. Try analyzing again
+                4. Change from "Selected networks" to **"All networks"**
+                5. Click **"Save"** and wait 2-3 minutes
                 
-                💡 **Alternative:** Add your current IP address to the allowed list instead of "All networks" for better security.
+                ### Option 2: Add Current IP (Temporary)
+                - Add IP: `34.9.104.227` to your allowed list
+                - Note: This IP changes when Replit restarts
+                
+                ### Option 3: Use Azure Service Tags (Most Secure)
+                - In networking settings, add service tag "Azure"
+                - This allows only Azure-to-Azure communication
                 """)
                 
             st.info("After fixing the Azure settings, try uploading and analyzing your document again.")
@@ -315,16 +318,46 @@ def show_settings_page():
                     st.error("🚫 Connection blocked by Azure firewall")
                     with st.expander("🔧 Fix Instructions", expanded=True):
                         st.markdown("""
-                        **Steps to Fix Azure Firewall Issue:**
+                        **Options to Fix Azure Firewall Issue:**
+                        
+                        **Option 1: Allow All Networks (Simplest)**
                         1. Go to **Azure Portal** (portal.azure.com)
                         2. Navigate to your **Azure OpenAI resource**
                         3. Click **"Networking"** in the left sidebar
                         4. Change from "Selected networks" to **"All networks"**
                         5. Click **"Save"** and wait 2-3 minutes
-                        6. Test connection again
+                        
+                        **Option 2: Add Current IP (Temporary)**
+                        1. Add IP address: `34.9.104.227` to your allowed list
+                        2. Note: This IP changes when Replit restarts
+                        
+                        **Option 3: Use Azure Services (Most Secure)**
+                        1. Allow traffic from "Azure" service tag
+                        2. This allows Azure-to-Azure communication only
                         """)
                 else:
                     st.error(f"❌ Connection failed: {error_msg}")
+    
+    # Network Information
+    st.subheader("Network Information")
+    with st.expander("Current Network Details"):
+        try:
+            import requests
+            current_ip = requests.get('https://ifconfig.me', timeout=5).text.strip()
+            st.info(f"**Current IP Address**: {current_ip}")
+            st.warning("⚠️ This IP is dynamic and changes when Replit restarts")
+            
+            st.markdown(f"""
+            **To whitelist this IP in Azure OpenAI:**
+            1. Go to Azure Portal → Your OpenAI Resource → Networking
+            2. Select "Selected networks"
+            3. Add IP address: `{current_ip}`
+            4. Click Save and wait 2-3 minutes
+            
+            **Note**: You'll need to update this when the IP changes.
+            """)
+        except Exception as e:
+            st.error(f"Could not detect current IP: {str(e)}")
     
     # Database settings
     st.subheader("Database")
