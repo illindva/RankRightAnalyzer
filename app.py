@@ -148,9 +148,35 @@ def perform_analysis(content_text, source_info):
         st.rerun()
         
     except Exception as e:
-        st.error(f"Analysis failed: {str(e)}")
+        error_msg = str(e)
         progress_bar.empty()
         status_text.empty()
+        
+        # Check for Azure firewall/networking issues
+        if "403" in error_msg and ("Virtual Network" in error_msg or "Firewall" in error_msg):
+            st.error("🚫 Azure OpenAI Access Blocked")
+            
+            with st.expander("🔧 Quick Fix Instructions", expanded=True):
+                st.markdown("""
+                **Your Azure OpenAI service has firewall rules blocking this connection.**
+                
+                ### Steps to Fix:
+                1. Go to **Azure Portal** (portal.azure.com)
+                2. Find your **Azure OpenAI resource**
+                3. Click **"Networking"** in the left sidebar
+                4. Under **"Firewalls and virtual networks":**
+                   - Change from "Selected networks" to **"All networks"**
+                5. Click **"Save"**
+                6. **Wait 2-3 minutes** for changes to take effect
+                7. Try analyzing again
+                
+                💡 **Alternative:** Add your current IP address to the allowed list instead of "All networks" for better security.
+                """)
+                
+            st.info("After fixing the Azure settings, try uploading and analyzing your document again.")
+            
+        else:
+            st.error(f"Analysis failed: {error_msg}")
 
 def show_analysis_results(analysis_id):
     """Display analysis results in tabs"""

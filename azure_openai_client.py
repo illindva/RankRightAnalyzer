@@ -37,8 +37,11 @@ class AzureOpenAIClient:
                 api_key=self.api_key,
                 api_version=self.api_version
             )
+            self.connection_working = True
         except Exception as e:
-            raise Exception(f"Failed to initialize Azure OpenAI client: {str(e)}")
+            st.warning(f"Azure OpenAI client initialization failed: {str(e)}")
+            self.connection_working = False
+            self.client = None
     
     def summarize_content(self, content: str, max_length: int = 500) -> str:
         """
@@ -52,6 +55,18 @@ class AzureOpenAIClient:
             Generated summary
         """
         
+        if not self.connection_working or self.client is None:
+            raise Exception(
+                "Azure OpenAI connection not available. Please check your firewall settings:\n\n"
+                "1. Go to your Azure OpenAI resource in Azure Portal\n"
+                "2. Navigate to 'Networking' section\n"
+                "3. Either:\n"
+                "   - Add your current IP address to allowed IPs, OR\n"
+                "   - Change from 'Selected networks' to 'All networks'\n"
+                "4. Save the changes and wait a few minutes\n\n"
+                "Error: Connection blocked by Virtual Network/Firewall rules"
+            )
+        
         prompt = f"""
         Please provide a concise summary of the following content in approximately {max_length} words.
         Focus on the main points, key insights, and overall purpose of the document.
@@ -63,6 +78,9 @@ class AzureOpenAIClient:
         """
         
         try:
+            if self.client is None:
+                raise Exception("Client not initialized")
+                
             response = self.client.chat.completions.create(
                 model=self.deployment_name,  # the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
                 messages=[
@@ -76,10 +94,25 @@ class AzureOpenAIClient:
                 temperature=0.3
             )
             
-            return response.choices[0].message.content.strip()
+            content = response.choices[0].message.content or ""
+            return content.strip() if content else "Summary could not be generated"
             
         except Exception as e:
-            raise Exception(f"Failed to generate summary: {str(e)}")
+            error_msg = str(e)
+            if "403" in error_msg and ("Virtual Network" in error_msg or "Firewall" in error_msg):
+                raise Exception(
+                    "Access denied due to Azure firewall rules. To fix this:\n\n"
+                    "1. Go to your Azure OpenAI resource in Azure Portal\n"
+                    "2. Click on 'Networking' in the left menu\n"
+                    "3. Under 'Firewalls and virtual networks':\n"
+                    "   - Change from 'Selected networks' to 'All networks', OR\n"
+                    "   - Add your current IP address to the allowed list\n"
+                    "4. Click 'Save' and wait 2-3 minutes for changes to take effect\n"
+                    "5. Try the analysis again\n\n"
+                    f"Technical error: {error_msg}"
+                )
+            else:
+                raise Exception(f"Failed to generate summary: {str(e)}")
     
     def evaluate_against_criteria(self, content: str, criterion_name: str, 
                                 criterion_description: str) -> Dict[str, Any]:
@@ -122,6 +155,9 @@ class AzureOpenAIClient:
         """
         
         try:
+            if self.client is None:
+                raise Exception("Client not initialized")
+                
             response = self.client.chat.completions.create(
                 model=self.deployment_name,  # the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
                 messages=[
@@ -136,7 +172,10 @@ class AzureOpenAIClient:
                 temperature=0.2
             )
             
-            result = json.loads(response.choices[0].message.content)
+            content = response.choices[0].message.content
+            if not content:
+                raise Exception("No response content received")
+            result = json.loads(content)
             
             # Validate and clean the result
             validated_result = self._validate_evaluation_result(result)
