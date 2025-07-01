@@ -127,11 +127,26 @@ AZURE_OPENAI_API_VERSION=2024-02-01
 AZURE_OPENAI_DEPLOYMENT_NAME=gpt-4o
 ```
 
+## Recent Changes
+
+### July 01, 2025
+- Initial RankRight application setup completed
+- Added comprehensive error handling for Azure OpenAI firewall issues
+- Implemented user-friendly error messages with fix instructions
+- Added connection testing functionality in Settings page
+- All core components operational: document processing, web scraping, database storage, AI evaluation
+
+### Known Issues & Solutions
+- **Azure OpenAI 403 Firewall Error**: Common issue when Azure OpenAI has network restrictions
+  - Solution: Change Azure OpenAI networking from "Selected networks" to "All networks" in Azure Portal
+  - Alternative: Add current IP address to allowed list
+  - Fix instructions integrated into error messages throughout the application
+
 ## Changelog
 
 ```
 Changelog:
-- July 01, 2025. Initial setup
+- July 01, 2025. Initial setup and Azure integration completed
 ```
 
 ## User Preferences

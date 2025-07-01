@@ -305,11 +305,26 @@ def show_settings_page():
         if st.button("Test Connection"):
             try:
                 test_client = AzureOpenAIClient()
-                # Simple test call
-                result = test_client.summarize_content("This is a test.")
-                st.success("✅ Connection successful!")
+                if test_client.test_connection():
+                    st.success("✅ Connection successful! Azure OpenAI is working.")
+                else:
+                    st.error("❌ Connection failed. Please check your configuration.")
             except Exception as e:
-                st.error(f"❌ Connection failed: {str(e)}")
+                error_msg = str(e)
+                if "403" in error_msg and ("Virtual Network" in error_msg or "Firewall" in error_msg):
+                    st.error("🚫 Connection blocked by Azure firewall")
+                    with st.expander("🔧 Fix Instructions", expanded=True):
+                        st.markdown("""
+                        **Steps to Fix Azure Firewall Issue:**
+                        1. Go to **Azure Portal** (portal.azure.com)
+                        2. Navigate to your **Azure OpenAI resource**
+                        3. Click **"Networking"** in the left sidebar
+                        4. Change from "Selected networks" to **"All networks"**
+                        5. Click **"Save"** and wait 2-3 minutes
+                        6. Test connection again
+                        """)
+                else:
+                    st.error(f"❌ Connection failed: {error_msg}")
     
     # Database settings
     st.subheader("Database")
