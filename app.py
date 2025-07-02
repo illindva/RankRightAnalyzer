@@ -335,18 +335,30 @@ def show_settings_page():
         
         # Save configuration button
         if st.button("💾 Save Configuration", key="save_config"):
-            # Note: In a real deployment, you'd want to save these to environment variables
-            # For now, we'll just show what would be saved
-            st.success("Configuration saved! (Note: Restart required to apply changes)")
-            st.info(f"""
-            **Configuration to be applied:**
-            - Endpoint: {endpoint}
-            - API Version: {api_version}
-            - Deployment: {deployment_name}
-            - Private Endpoint: {'Enabled' if use_private_endpoint else 'Disabled'}
-            - Private IP: {private_ip if use_private_endpoint else 'N/A'}
-            - Private FQDN: {private_fqdn if private_fqdn else 'N/A'}
-            """)
+            try:
+                from config_manager import ConfigManager
+                config_mgr = ConfigManager()
+                
+                # Update configuration
+                config_mgr.update_azure_openai_config(
+                    endpoint=endpoint,
+                    api_version=api_version,
+                    deployment_name=deployment_name,
+                    use_private_endpoint=use_private_endpoint,
+                    private_endpoint_ip=private_ip,
+                    private_endpoint_fqdn=private_fqdn
+                )
+                
+                st.success("✅ Configuration saved successfully!")
+                st.info("""
+                **Next Steps:**
+                1. Restart the application to apply changes
+                2. Test the connection using the button below
+                3. If using private endpoint, ensure network connectivity to the private IP
+                """)
+                
+            except Exception as e:
+                st.error(f"❌ Failed to save configuration: {str(e)}")
         
         # Configuration check
         st.subheader("Configuration Status")
@@ -405,74 +417,27 @@ def show_settings_page():
             for issue in config_issues:
                 st.error(issue)
         
-        if st.button("Test Connection"):
-            try:
-                test_client = AzureOpenAIClient()
-                success, message = test_client.test_connection()
-                if success:
-                    st.success("✅ Connection successful! Azure OpenAI is working.")
-                else:
-                    st.error(f"❌ Connection failed: {message}")
-            except Exception as e:
-                error_msg = str(e)
-                if "DeploymentNotFound" in error_msg or "API deployment for this resource does not exist" in error_msg:
-                    st.error("🚫 Deployment Not Found")
-                    with st.expander("🔧 Fix Instructions", expanded=True):
-                        st.markdown("""
-                        **Your deployment name is incorrect or doesn't exist.**
+        if st.button("🔍 Test Connection"):
+            with st.spinner("Testing Azure OpenAI connection..."):
+                try:
+                    test_client = AzureOpenAIClient()
+                    conn_info = test_client.get_connection_info()
+                    
+                    # Show connection details
+                    st.info(f"🔗 Testing connection to: {conn_info['effective_endpoint']}")
+                    if conn_info['use_private_endpoint']:
+                        st.info(f"🔒 Using private endpoint via IP: {conn_info['private_endpoint_ip']}")
+                    
+                    success, message = test_client.test_connection()
+                    
+                    if success:
+                        st.success("✅ Connection successful! Azure OpenAI is working perfectly.")
+                        st.balloons()
+                    else:
+                        st.error(f"❌ Connection failed: {message}")
                         
-                        **To find the correct deployment name:**
-                        1. Go to **Azure Portal** (portal.azure.com)
-                        2. Navigate to your **Azure OpenAI resource**
-                        3. Click **"Model deployments"** in the left sidebar
-                        4. Copy the exact **deployment name** (not the model name)
-                        5. Update the "Deployment Name" field above
-                        6. Try the connection test again
-                        
-                        **Common deployment names:**
-                        - gpt-4o
-                        - gpt-35-turbo
-                        - RankRightAnalyzer (current setting)
-                        
-                        **Note:** Deployment names are case-sensitive!
-                        """)
-                elif "Virtual Network is configured" in error_msg:
-                    st.error("🚫 Virtual Network Configuration Issue")
-                    with st.expander("🔧 Fix Instructions", expanded=True):
-                        st.markdown("""
-                        **Your Azure OpenAI has Virtual Network restrictions.**
-                        
-                        **To fix this:**
-                        1. Go to **Azure Portal** → Your OpenAI Resource → **Networking**
-                        2. Under **"Public network access"**:
-                           - Change from "Disabled" to **"Enabled from all networks"**
-                           - OR change from "Selected VNets" to **"Enabled from all networks"**
-                        3. Click **"Save"** and wait 5-10 minutes
-                        4. Try connection test again
-                        """)
-                elif "403" in error_msg and ("Virtual Network" in error_msg or "Firewall" in error_msg):
-                    st.error("🚫 Connection blocked by Azure firewall")
-                    with st.expander("🔧 Fix Instructions", expanded=True):
-                        st.markdown("""
-                        **Options to Fix Azure Firewall Issue:**
-                        
-                        **Option 1: Allow All Networks (Simplest)**
-                        1. Go to **Azure Portal** (portal.azure.com)
-                        2. Navigate to your **Azure OpenAI resource**
-                        3. Click **"Networking"** in the left sidebar
-                        4. Change from "Selected networks" to **"All networks"**
-                        5. Click **"Save"** and wait 2-3 minutes
-                        
-                        **Option 2: Add Current IP (Temporary)**
-                        1. Add IP address: `34.9.104.227` to your allowed list
-                        2. Note: This IP changes when Replit restarts
-                        
-                        **Option 3: Use Azure Services (Most Secure)**
-                        1. Allow traffic from "Azure" service tag
-                        2. This allows Azure-to-Azure communication only
-                        """)
-                else:
-                    st.error(f"❌ Connection failed: {error_msg}")
+                except Exception as e:
+                    st.error(f"❌ Connection test failed: {str(e)}")
     
     # Network Information
     st.subheader("Network Information")
