@@ -136,6 +136,13 @@ AZURE_OPENAI_DEPLOYMENT_NAME=gpt-4o
 - Added connection testing functionality in Settings page
 - All core components operational: document processing, web scraping, database storage, AI evaluation
 
+### July 02, 2025
+- Added private endpoint support for Azure OpenAI connections
+- Implemented configurable IP address settings in Settings page
+- Created ConfigManager for persistent configuration storage
+- Enhanced connection testing to show private endpoint status
+- Updated Azure OpenAI client to support both public and private endpoints
+
 ### Known Issues & Solutions
 - **Azure OpenAI 403 Firewall Error**: Common issue when Azure OpenAI has network restrictions
   - **Option 1**: Change Azure OpenAI networking from "Selected networks" to "All networks" in Azure Portal
