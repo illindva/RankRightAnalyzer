@@ -1,5 +1,6 @@
 import os
 import json
+import requests
 from typing import Dict, List, Any, Optional
 import streamlit as st
 
@@ -24,16 +25,24 @@ class AzureOpenAIClient:
         self.api_version = os.getenv("AZURE_OPENAI_API_VERSION", "2024-02-01")
         self.deployment_name = os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME", "RankRightAnalyzer")
         
+        # Private endpoint configuration
+        self.use_private_endpoint = os.getenv("AZURE_OPENAI_USE_PRIVATE_ENDPOINT", "false").lower() == "true"
+        self.private_endpoint_ip = os.getenv("AZURE_OPENAI_PRIVATE_IP", "")
+        self.private_endpoint_fqdn = os.getenv("AZURE_OPENAI_PRIVATE_FQDN", "")
+        
         if not self.endpoint or not self.api_key:
             raise ValueError(
                 "Azure OpenAI configuration missing. Please set AZURE_OPENAI_ENDPOINT "
                 "and AZURE_OPENAI_API_KEY environment variables."
             )
         
-        # Initialize client
+        # Initialize client with private endpoint support
         try:
+            # Configure endpoint for private endpoint if enabled
+            endpoint_url = self._get_effective_endpoint()
+            
             self.client = AzureOpenAI(
-                azure_endpoint=self.endpoint,
+                azure_endpoint=endpoint_url,
                 api_key=self.api_key,
                 api_version=self.api_version
             )
@@ -42,6 +51,49 @@ class AzureOpenAIClient:
             st.warning(f"Azure OpenAI client initialization failed: {str(e)}")
             self.connection_working = False
             self.client = None
+    
+    def _get_effective_endpoint(self) -> str:
+        """
+        Get the effective endpoint URL, considering private endpoint configuration.
+        
+        Returns:
+            The endpoint URL to use for connections
+        """
+        if self.use_private_endpoint and self.private_endpoint_ip:
+            # Replace the hostname in the endpoint with the private IP
+            import urllib.parse
+            parsed = urllib.parse.urlparse(self.endpoint)
+            
+            # Build the private endpoint URL
+            if self.private_endpoint_fqdn:
+                # Use custom FQDN if provided
+                private_endpoint = f"{parsed.scheme}://{self.private_endpoint_fqdn}{parsed.path}"
+            else:
+                # Use IP address directly
+                private_endpoint = f"{parsed.scheme}://{self.private_endpoint_ip}{parsed.path}"
+            
+            return private_endpoint
+        else:
+            # Use the standard public endpoint
+            return self.endpoint
+    
+    def get_connection_info(self) -> Dict[str, Any]:
+        """
+        Get current connection configuration information.
+        
+        Returns:
+            Dictionary containing connection details
+        """
+        return {
+            "endpoint": self.endpoint,
+            "effective_endpoint": self._get_effective_endpoint(),
+            "use_private_endpoint": self.use_private_endpoint,
+            "private_endpoint_ip": self.private_endpoint_ip,
+            "private_endpoint_fqdn": self.private_endpoint_fqdn,
+            "api_version": self.api_version,
+            "deployment_name": self.deployment_name,
+            "connection_working": self.connection_working
+        }
     
     def summarize_content(self, content: str, max_length: int = 500) -> str:
         """

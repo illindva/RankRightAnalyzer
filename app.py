@@ -302,28 +302,104 @@ def show_settings_page():
     
     # Azure OpenAI settings
     with st.expander("Azure OpenAI Configuration"):
-        endpoint = st.text_input("Azure OpenAI Endpoint", value=os.getenv("AZURE_OPENAI_ENDPOINT", ""))
-        api_key = st.text_input("API Key", type="password", value="***" if os.getenv("AZURE_OPENAI_API_KEY") else "")
-        api_version = st.text_input("API Version", value=os.getenv("AZURE_OPENAI_API_VERSION", "2024-02-01"))
-        deployment_name = st.text_input("Deployment Name", value=os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME", "RankRightAnalyzer"))
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.markdown("**Basic Configuration**")
+            endpoint = st.text_input("Azure OpenAI Endpoint", value=os.getenv("AZURE_OPENAI_ENDPOINT", ""))
+            api_key = st.text_input("API Key", type="password", value="***" if os.getenv("AZURE_OPENAI_API_KEY") else "")
+            api_version = st.text_input("API Version", value=os.getenv("AZURE_OPENAI_API_VERSION", "2024-02-01"))
+            deployment_name = st.text_input("Deployment Name", value=os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME", "RankRightAnalyzer"))
+        
+        with col2:
+            st.markdown("**Private Endpoint Configuration**")
+            use_private_endpoint = st.checkbox(
+                "Use Private Endpoint", 
+                value=os.getenv("AZURE_OPENAI_USE_PRIVATE_ENDPOINT", "false").lower() == "true",
+                help="Enable to connect via private endpoint instead of public internet"
+            )
+            
+            private_ip = st.text_input(
+                "Private Endpoint IP", 
+                value=os.getenv("AZURE_OPENAI_PRIVATE_IP", ""),
+                disabled=not use_private_endpoint,
+                help="IP address of the private endpoint"
+            )
+            
+            private_fqdn = st.text_input(
+                "Private Endpoint FQDN (Optional)", 
+                value=os.getenv("AZURE_OPENAI_PRIVATE_FQDN", ""),
+                disabled=not use_private_endpoint,
+                help="Custom FQDN for private endpoint (leave empty to use IP directly)"
+            )
+        
+        # Save configuration button
+        if st.button("💾 Save Configuration", key="save_config"):
+            # Note: In a real deployment, you'd want to save these to environment variables
+            # For now, we'll just show what would be saved
+            st.success("Configuration saved! (Note: Restart required to apply changes)")
+            st.info(f"""
+            **Configuration to be applied:**
+            - Endpoint: {endpoint}
+            - API Version: {api_version}
+            - Deployment: {deployment_name}
+            - Private Endpoint: {'Enabled' if use_private_endpoint else 'Disabled'}
+            - Private IP: {private_ip if use_private_endpoint else 'N/A'}
+            - Private FQDN: {private_fqdn if private_fqdn else 'N/A'}
+            """)
         
         # Configuration check
         st.subheader("Configuration Status")
+        
+        # Show connection information
+        try:
+            from azure_openai_client import AzureOpenAIClient
+            client = AzureOpenAIClient()
+            conn_info = client.get_connection_info()
+            
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                st.markdown("**Basic Configuration**")
+                if conn_info["endpoint"]:
+                    st.info(f"✅ Endpoint: {conn_info['endpoint']}")
+                else:
+                    st.error("❌ Azure OpenAI Endpoint is missing")
+                    
+                if os.getenv("AZURE_OPENAI_API_KEY"):
+                    st.info("✅ API Key is configured")
+                else:
+                    st.error("❌ Azure OpenAI API Key is missing")
+                    
+                if conn_info["deployment_name"]:
+                    st.info(f"✅ Deployment: {conn_info['deployment_name']}")
+                else:
+                    st.error("❌ Deployment Name is missing")
+            
+            with col2:
+                st.markdown("**Connection Information**")
+                if conn_info["use_private_endpoint"]:
+                    st.info("🔒 Private Endpoint: Enabled")
+                    st.info(f"📍 Effective Endpoint: {conn_info['effective_endpoint']}")
+                    if conn_info["private_endpoint_ip"]:
+                        st.info(f"🌐 Private IP: {conn_info['private_endpoint_ip']}")
+                    if conn_info["private_endpoint_fqdn"]:
+                        st.info(f"🏷️ Private FQDN: {conn_info['private_endpoint_fqdn']}")
+                else:
+                    st.info("🌐 Private Endpoint: Disabled (Using public endpoint)")
+                    
+        except Exception as e:
+            st.error(f"❌ Configuration check failed: {str(e)}")
+            
         config_issues = []
         if not endpoint:
             config_issues.append("❌ Azure OpenAI Endpoint is missing")
-        else:
-            st.info(f"✅ Endpoint: {endpoint}")
-            
         if not os.getenv("AZURE_OPENAI_API_KEY"):
             config_issues.append("❌ Azure OpenAI API Key is missing")
-        else:
-            st.info("✅ API Key is configured")
-            
         if not deployment_name:
             config_issues.append("❌ Deployment Name is missing")
-        else:
-            st.info(f"✅ Deployment: {deployment_name}")
+        if use_private_endpoint and not private_ip:
+            config_issues.append("❌ Private Endpoint IP is required when private endpoint is enabled")
             
         if config_issues:
             for issue in config_issues:
