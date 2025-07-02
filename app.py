@@ -305,7 +305,7 @@ def show_settings_page():
         endpoint = st.text_input("Azure OpenAI Endpoint", value=os.getenv("AZURE_OPENAI_ENDPOINT", ""))
         api_key = st.text_input("API Key", type="password", value="***" if os.getenv("AZURE_OPENAI_API_KEY") else "")
         api_version = st.text_input("API Version", value=os.getenv("AZURE_OPENAI_API_VERSION", "2024-02-01"))
-        deployment_name = st.text_input("Deployment Name", value=os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME", "gpt-4o"))
+        deployment_name = st.text_input("Deployment Name", value=os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME", "RankRightAnalyzer"))
         
         # Configuration check
         st.subheader("Configuration Status")
@@ -339,7 +339,42 @@ def show_settings_page():
                     st.error(f"❌ Connection failed: {message}")
             except Exception as e:
                 error_msg = str(e)
-                if "403" in error_msg and ("Virtual Network" in error_msg or "Firewall" in error_msg):
+                if "DeploymentNotFound" in error_msg or "API deployment for this resource does not exist" in error_msg:
+                    st.error("🚫 Deployment Not Found")
+                    with st.expander("🔧 Fix Instructions", expanded=True):
+                        st.markdown("""
+                        **Your deployment name is incorrect or doesn't exist.**
+                        
+                        **To find the correct deployment name:**
+                        1. Go to **Azure Portal** (portal.azure.com)
+                        2. Navigate to your **Azure OpenAI resource**
+                        3. Click **"Model deployments"** in the left sidebar
+                        4. Copy the exact **deployment name** (not the model name)
+                        5. Update the "Deployment Name" field above
+                        6. Try the connection test again
+                        
+                        **Common deployment names:**
+                        - gpt-4o
+                        - gpt-35-turbo
+                        - RankRightAnalyzer (current setting)
+                        
+                        **Note:** Deployment names are case-sensitive!
+                        """)
+                elif "Virtual Network is configured" in error_msg:
+                    st.error("🚫 Virtual Network Configuration Issue")
+                    with st.expander("🔧 Fix Instructions", expanded=True):
+                        st.markdown("""
+                        **Your Azure OpenAI has Virtual Network restrictions.**
+                        
+                        **To fix this:**
+                        1. Go to **Azure Portal** → Your OpenAI Resource → **Networking**
+                        2. Under **"Public network access"**:
+                           - Change from "Disabled" to **"Enabled from all networks"**
+                           - OR change from "Selected VNets" to **"Enabled from all networks"**
+                        3. Click **"Save"** and wait 5-10 minutes
+                        4. Try connection test again
+                        """)
+                elif "403" in error_msg and ("Virtual Network" in error_msg or "Firewall" in error_msg):
                     st.error("🚫 Connection blocked by Azure firewall")
                     with st.expander("🔧 Fix Instructions", expanded=True):
                         st.markdown("""
